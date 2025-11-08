@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <title>Login Absensi Praktek Lapangan Industri (PLI)</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f6f8;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      max-width: 500px;
+      margin: auto;
+      background-color: #ffffff;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    h1, h2 {
+      text-align: center;
+      color: #333;
+    }
+    label {
+      display: block;
+      margin-top: 15px;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+    input, select {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      box-sizing: border-box;
+    }
+    button {
+      margin-top: 20px;
+      width: 100%;
+      padding: 10px;
+      background-color: #3498db;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #2980b9;
+    }
+    #result {
+      margin-top: 30px;
+      background-color: #e9f7ef;
+      border: 1px solid #2ecc71;
+      padding: 15px;
+      border-radius: 5px;
+      color: #2e7d32;
+    }
+    #absensiSection { display: none; }
+    #logoutBtn {
+      background-color: #e74c3c;
+      margin-top: 10px;
+    }
+    #logoutBtn:hover {
+      background-color: #c0392b;
+    }
+    /* Notifikasi lokasi */
+    #locationPrompt {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.6);
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    #locationBox {
+      background: white;
+      padding: 25px;
+      border-radius: 10px;
+      max-width: 350px;
+      text-align: center;
+      box-shadow: 0 0 10px rgba(0,0,0,0.3);
+    }
+    #locationBox button {
+      width: 45%;
+      margin: 10px 5px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HALAMAN LOGIN -->
+  <div class="container" id="loginSection">
+    <h1>Login Absensi Pratek Lapangan Industri (PLI)</h1>
+    <h2>Periode Juli - Desember 2025</h2>
+
+    <form id="loginForm">
+      <label for="nim">NIM:</label>
+      <input type="text" id="nim" required />
+
+      <label for="password">Password:</label>
+      <input type="password" id="password" required />
+
+      <button type="submit">Login</button>
+    </form>
+    <div id="loginMsg"></div>
+  </div>
+
+  <!-- HALAMAN ABSENSI -->
+  <div class="container" id="absensiSection">
+    <h1>Absensi Pratek Lapangan Industri (PLI)</h1>
+    <h2>Selamat datang, <span id="namaUser"></span></h2>
+
+    <form id="absensiForm">
+      <label for="tanggal">Tanggal:</label>
+      <input type="date" id="tanggal" name="tanggal" required />
+
+      <label for="jamDatang">Jam Datang:</label>
+      <input type="time" id="jamDatang" name="jamDatang" value="08:00" required />
+
+      <label for="jamPulang">Jam Pulang:</label>
+      <input type="time" id="jamPulang" name="jamPulang" />
+
+      <label for="keterangan">Keterangan:</label>
+      <select id="keterangan" name="keterangan" required>
+        <option value="">-- Pilih Keterangan --</option>
+        <option value="Hadir">Hadir</option>
+        <option value="Tidak Hadir">Tidak Hadir</option>
+        <option value="Izin">Izin</option>
+      </select>
+
+      <input type="hidden" id="nama" name="nama" />
+      <input type="hidden" id="latitude" name="latitude" />
+      <input type="hidden" id="longitude" name="longitude" />
+
+      <button type="submit">Submit Absensi</button>
+    </form>
+
+    <button id="logoutBtn">Logout</button>
+    <div id="result"></div>
+  </div>
+
+  <!-- POPUP NOTIFIKASI UNTUK MENGHIDUPKAN LOKASI -->
+  <div id="locationPrompt">
+    <div id="locationBox">
+      <h3>Aktifkan Lokasi?</h3>
+      <p>Untuk mengisi absensi, Anda perlu menghidupkan fitur lokasi (GPS).</p>
+      <button id="enableLocationBtn">Hidupkan Lokasi</button>
+      <button id="skipLocationBtn">Lanjut Tanpa Lokasi</button>
+    </div>
+  </div>
+
+  <script>
+    // DAFTAR USER LOGIN
+    const users = [
+      { nim: '22350010', nama: 'Elvi Gustian', password: '12345' },
+      { nim: '22350020', nama: 'Rahmat', password: 'abcd' },
+      { nim: '22350030', nama: 'Dewi', password: 'qwerty' }
+    ];
+
+    const lokasiMagang = { lat: -0.934618, lon: 100.365157 }; // Ganti dengan lokasi magangmu
+    const radiusMaks = 100; // meter
+
+    const loginSection = document.getElementById('loginSection');
+    const absensiSection = document.getElementById('absensiSection');
+    const loginForm = document.getElementById('loginForm');
+    const absensiForm = document.getElementById('absensiForm');
+    const resultDiv = document.getElementById('result');
+    const namaUserSpan = document.getElementById('namaUser');
+    const loginMsg = document.getElementById('loginMsg');
+    const locationPrompt = document.getElementById('locationPrompt');
+
+    // LOGIN
+    loginForm.addEventListener('submit', e => {
+      e.preventDefault();
+      const nim = document.getElementById('nim').value.trim();
+      const password = document.getElementById('password').value.trim();
+
+      const user = users.find(u => u.nim === nim && u.password === password);
+      if (user) {
+        loginSection.style.display = 'none';
+        absensiSection.style.display = 'block';
+        namaUserSpan.textContent = user.nama;
+        document.getElementById('nama').value = user.nama;
+      } else {
+        loginMsg.textContent = 'NIM atau password salah!';
+        loginMsg.style.color = 'red';
+      }
+    });
+
+    // LOGOUT
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+      absensiSection.style.display = 'none';
+      loginSection.style.display = 'block';
+      loginForm.reset();
+      absensiForm.reset();
+      resultDiv.innerHTML = '';
+    });
+
+    // HITUNG JARAK
+    function hitungJarak(lat1, lon1, lat2, lon2) {
+      const R = 6371e3;
+      const φ1 = lat1 * Math.PI/180;
+      const φ2 = lat2 * Math.PI/180;
+      const Δφ = (lat2-lat1) * Math.PI/180;
+      const Δλ = (lon2-lon1) * Math.PI/180;
+      const a = Math.sin(Δφ/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2;
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      return R * c;
+    }
+
+    // SUBMIT ABSENSI
+    absensiForm.addEventListener('submit', e => {
+      e.preventDefault();
+      // tampilkan notifikasi hidupkan lokasi
+      locationPrompt.style.display = 'flex';
+    });
+
+    // Tombol popup lokasi
+    document.getElementById('enableLocationBtn').addEventListener('click', () => {
+      locationPrompt.style.display = 'none';
+      ambilLokasi();
+    });
+
+    document.getElementById('skipLocationBtn').addEventListener('click', () => {
+      alert("Lokasi tidak diaktifkan. Anda tidak bisa mengisi absensi tanpa lokasi.");
+      locationPrompt.style.display = 'none';
+    });
+
+    // Fungsi ambil lokasi & kirim absensi
+    function ambilLokasi() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          pos => {
+            const userLat = pos.coords.latitude;
+            const userLon = pos.coords.longitude;
+            const jarak = hitungJarak(userLat, userLon, lokasiMagang.lat, lokasiMagang.lon);
+
+            if (jarak <= radiusMaks) {
+              document.getElementById('latitude').value = userLat;
+              document.getElementById('longitude').value = userLon;
+              kirimAbsensi();
+            } else {
+              alert(`Anda di luar area absensi (jarak: ${Math.round(jarak)} meter).`);
+            }
+          },
+          () => alert('Tidak dapat mengakses lokasi. Pastikan GPS aktif.')
+        );
+      } else {
+        alert('Browser tidak mendukung fitur lokasi.');
+      }
+    }
+
+    // KIRIM KE GOOGLE SHEET
+    function kirimAbsensi() {
+      const data = new FormData(absensiForm);
+      const params = new URLSearchParams();
+      for (const pair of data.entries()) params.append(pair[0], pair[1]);
+
+      fetch('https://script.google.com/macros/s/AKfycbzqHPfTJbcOm5R60myhgvxgquKq4an-u08Q6e69XczDDGZdal_JCTtHHzkPqLFXxj8F/exec', {
+        method: 'POST',
+        body: params
+      })
+      .then(res => res.text())
+      .then(text => {
+        if (text === "Sukses") {
+          resultDiv.innerHTML = `
+            <h3>Data Absensi Tercatat</h3>
+            <p><strong>Nama:</strong> ${data.get('nama')}</p>
+            <p><strong>Tanggal:</strong> ${data.get('tanggal')}</p>
+            <p><strong>Jam Datang:</strong> ${data.get('jamDatang')}</p>
+            <p><strong>Keterangan:</strong> ${data.get('keterangan')}</p>
+            <p><strong>Lokasi:</strong> ${data.get('latitude')}, ${data.get('longitude')}</p>
+          `;
+          absensiForm.reset();
+        } else {
+          resultDiv.textContent = "Gagal menyimpan data.";
+        }
+      })
+      .catch(() => resultDiv.textContent = "Gagal menyimpan data.");
+    }
+  </script>
+
+</body>
+</html>
