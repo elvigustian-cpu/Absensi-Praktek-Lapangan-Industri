@@ -181,8 +181,7 @@
 
       const user = users.find(u => u.nim === nim && u.password === password);
       if (user) {
-        loginSection.style.display = 'none';
-        absensiSection.style.display = 'block';
+        window.location.href = "absensi.html";
         namaUserSpan.textContent = user.nama;
         document.getElementById('nama').value = user.nama;
       } else {
@@ -286,3 +285,4 @@
 
 </body>
 </html>
+
